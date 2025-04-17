@@ -1,0 +1,325 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<title>ueditor demo</title>
+	<style>
+		/* 覆盖层样式 */
+		#overlay {
+		  position: fixed;
+		  top: 0;
+		  left: 0;
+		  width: 100vw;
+		  height: 100vh;
+		  background: rgba(0, 0, 0, 0.5);
+		  display: flex;
+		  justify-content: center;
+		  align-items: center;
+		  z-index: 9999;
+		}
+		/* 弹窗样式 */
+		#config-dialog {
+		  background: #fff;
+		  padding: 20px;
+		  border-radius: 5px;
+		  width: 90%;
+		  max-width: 400px;
+		  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		}
+		#config-dialog h2 {
+		  margin-top: 0;
+		}
+		label {
+		  display: block;
+		  margin-bottom: 10px;
+		  font-weight: bold;
+		}
+		input {
+		  width: 100%;
+		  padding: 8px;
+		  margin-top: 5px;
+		  margin-bottom: 15px;
+		  border: 1px solid #ccc;
+		  border-radius: 4px;
+		  box-sizing: border-box;
+		}
+		button {
+		  padding: 10px 20px;
+		  background-color: #007bff;
+		  color: #fff;
+		  border: none;
+		  border-radius: 4px;
+		  cursor: pointer;
+		}
+		button:hover {
+		  background-color: #0056b3;
+		}
+		/* 初始隐藏 UEditor 容器 */
+		.hidden {
+		  display: none;
+		}
+		.rgb {
+			display: flex;
+			gap: 10px; /* 控制间距 */
+		}
+	</style>
+
+	<script>
+		// 定义一个全局的 URL 变量
+		var globalFontsUrl = "https://fonts.googleapis.com/css2?family=Cabin&family=Forum&family=Fira+Sans&family=Pacifico&family=Bangers&display=swap";
+
+		// 动态添加到 <head> 的 <link>
+		document.addEventListener("DOMContentLoaded", function () {
+			var linkElement = document.createElement("link")
+			linkElement.rel = "stylesheet"
+			linkElement.href = globalFontsUrl
+			document.head.appendChild(linkElement)
+		})
+	</script>
+
+	<!-- 配置文件 -->
+	<script type="text/javascript" src="ueditor.config.js"></script>
+	<!-- 编辑器源码文件 -->
+	<script type="text/javascript" src="ueditor.all.js"></script>
+	<!-- 链接manifest文件 -->
+	<link rel="manifest" href="manifest.json">
+	<!-- <link href="https://fonts.googleapis.com/css2?family=Cabin&family=Forum&family=Fira+Sans&family=Pacifico&family=Bangers&display=swap" rel="stylesheet"> -->
+</head>
+
+<!-- *************************************************************************************************************************************************************************** -->
+
+<body>
+	<!-- 覆盖层弹窗：引导用户输入配置 -->
+	<div id="overlay">
+		<div id="config-dialog">
+		  <h2>编辑器参数设置</h2>
+		  <label>
+			字体样式:
+			<input type="text" id="fontStyle" placeholder="例如：Fira Sans" />
+		  </label>
+		  <label>
+			字体大小:
+			<input type="number" id="fontSize" placeholder="16" min="1" max="72" />
+		  </label>
+		  <label>
+			行高(输入需带单位，固定值/倍数):
+			<input type="text" id="fontHeight" placeholder="1.75em" />
+		  </label>
+		  <!-- 新增输入框，用于选择顶部高度（margin-top 的高度） -->
+		  <label>
+			顶部高度(像素):
+			<input type="number" id="marginTop" placeholder="40" />
+		  </label>
+		  <!-- 新增输入框，用于富文本框宽度（博客内容宽度） -->
+		  <label>
+			博客内容宽度(像素):
+			<input type="number" id="blogWidth" placeholder="1200" min="600" max="1920" />
+		  </label>
+		  <!-- 新增输入框，用于RGB -->
+		  <label>
+			RGB(16进制):
+		  </label>
+		  <label class="rgb">
+			<input type="number" id="red" placeholder="88" min="0" max="255" />
+			<input type="number" id="green" placeholder="88" min="0" max="255" />
+			<input type="number" id="blue" placeholder="88" min="0" max="255" />
+		  </label>
+		  <button id="confirmBtn">确认</button>
+		</div>
+	</div>
+
+	<!-- 父容器，包含标题和勾选框 -->
+	<div style="text-align:center; display: flex; justify-content: center; align-items: center; font-size:36px; font-weight:bold; margin:20px 0; user-select:none;">
+		<span style="margin-right: 20px;">UEditor - Local Blog Editor</span>
+		<label style="display: inline-flex; align-items: center; white-space: nowrap; font-size: 16px;">
+			<input type="checkbox" id="fixStyleCheckbox" style="margin-right: 8px; vertical-align: middle; width: 16px; height: 16px;" checked> 固定样式
+		</label>
+	</div>
+  
+	<!-- UEditor 容器会在用户确认后动态添加 -->
+	<div id="editorContainer" class="hidden" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;"></div>
+
+	<!-- 延迟实例化编辑器的逻辑 -->
+	<script type="module">
+
+		import { addInputListeners, removeListeners } from './inputListeners.js';
+
+		const inputIds = ['fontSize', 'marginTop', 'blogWidth', 'red', 'green', 'blue'];
+		const limits = [[1, 72], [1, 100], [600, 1920], [0, 255], [0, 255], [0, 255]];
+		const listenInput = false
+
+        // 监听器管理
+        let dialogKeyListener; // 存储 dialog 监听器引用
+
+        // 添加 dialog 的 keydown 事件监听器
+        function addDialogKeyListener(dialogId, confirmBtnId) {
+            const dialog = document.getElementById(dialogId);
+            if (dialog) {
+                const listener = function(e) {
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+                        document.getElementById(confirmBtnId).click();
+                    }
+                };
+                dialog.addEventListener('keydown', listener);
+                dialogKeyListener = listener; // 存储监听器引用
+                console.log("KeyListener added for:", dialogId); // 添加日志记录
+            } else {
+                console.log("Dialog element not found:", dialogId); // 添加日志记录
+            }
+        }
+
+        // 移除 dialog 的 keydown 事件监听器
+        function removeDialogKeyListener(dialogId) {
+            const dialog = document.getElementById(dialogId);
+            if (dialog && dialogKeyListener) {
+                dialog.removeEventListener('keydown', dialogKeyListener);
+                dialogKeyListener = null; // 移除存储的引用
+                console.log("KeyListener removed for:", dialogId); // 添加日志记录
+            } else {
+                console.log("Dialog element or listener not found for removal:", dialogId); // 添加日志记录
+            }
+        }
+
+		addInputListeners(inputIds, limits, listenInput);
+		addDialogKeyListener('config-dialog', 'confirmBtn');
+
+
+
+		let windowHeight = 650;
+
+		// (可选) 尝试使用 JavaScript 调整窗口大小，但可能受限
+		window.addEventListener('load', () => {
+			try {
+				const currentWindowWidth = window.innerWidth;
+				const currentWindowHeight = window.innerHeight;
+
+				const outerWindowWidth = window.outerWidth;
+				const outerWindowHeight = window.outerHeight;
+
+				const screenWidth = screen.width;
+				const screenHeight = screen.height;
+				
+				const availableScreenWidth = screen.availWidth;
+				const availableScreenHeight = screen.availHeight;
+
+				window.resizeTo(1440, screenHeight)
+				window.moveTo(window.screenX, 0); // 将窗口移动到屏幕顶部 (可选)
+				windowHeight = currentWindowHeight
+
+				console.log('屏幕高度是：------------------------------------------------------------------------'+currentWindowHeight)
+				console.log('变量类型是：------------------------------------------------------------------------'+typeof(currentWindowHeight))
+			} catch (error) {
+				console.error("尝试调整窗口高度失败:", error)
+			}
+		})
+
+		document.getElementById("confirmBtn").addEventListener("click", function () {
+			// 读取用户输入参数，若为空则使用默认值
+			var fontStyle    = document.getElementById("fontStyle").value || "Fira Sans"
+			var fontSize     = document.getElementById("fontSize").value  || "16"
+			var fontHeight	 = document.getElementById("fontHeight").value || "1.75em"
+			var marginTop    = document.getElementById("marginTop").value || "40"	// 读取顶部高度，默认为40
+			var blogWidth    = document.getElementById("blogWidth").value || "1200"	// 读取博文宽度，默认为1200
+
+			var red    = document.getElementById("red").value || "88"	// R
+			var blue    = document.getElementById("green").value || "88"	// G
+			var green    = document.getElementById("blue").value || "88"	// B
+			// 样式字符串
+			var userStyle = '<div style="font-family:' + fontStyle + '; font-size:' + fontSize + 'px; line-height:' + fontHeight + '; margin-top:' + marginTop + 'px; color: rgb(' + red + ',' + green + ',' + blue + ');"><p></p></div>'
+			
+			// 移除覆盖层的监听器
+			removeListeners(listenInput);
+			removeDialogKeyListener('config-dialog');
+
+			// 隐藏覆盖层弹窗
+			document.getElementById("overlay").style.display = "none"
+
+
+			// 显示编辑器容器
+			var containerDom = document.getElementById("editorContainer")
+			containerDom.classList.remove("hidden")
+
+			// 动态创建用于加载编辑器的容器 <script> 标签（必须为 type="text/plain"）
+			var containerScript = document.createElement("script")
+			containerScript.id   = "container"
+			containerScript.name = "content"
+			containerScript.type = "text/plain"
+			// containerScript.innerHTML = "初始化内容";
+			// 清空 editorContainer 内已有内容，并追加新创建的容器
+			containerDom.innerHTML = ""
+			// 为了保证宽度设置，外面可包裹一层div（这里参考原始代码中的宽度控制）
+			var wrapper = document.createElement("div")
+			if(blogWidth <= 1900) {
+				wrapper.style.width = blogWidth+"px"
+			}
+
+			wrapper.appendChild(containerScript)
+			containerDom.appendChild(wrapper)
+
+			// 实例化 UEditor，此时程序会查找 id 为 "container" 的元素并渲染编辑器
+			var ue = UE.getEditor('container', {
+				initialFrameHeight: windowHeight-250,
+				allowDivTransToP: false,    // 是否自动转换 div 为 p，默认 true
+				autoHeightEnabled: false,	// 是否自动长高，默认 true
+				serverUrl: '',	// 指向一个不存在或返回默认配置的脚本
+				iframeCssUrl: globalFontsUrl,
+			});
+
+			// 编辑器初始化完成后的额外设置
+			ue.ready(function () {
+				// 示例：使用用户参数设置初始内容的字体样式和字号
+				// ue.execCommand('insertHtml', '<div style="font-family:' + fontStyle + '; font-size:' + fontSize + 'px; line-height:' + fontHeight + ';"><p>欢迎使用 UEditor! </p></div>');
+				ue.setContent(userStyle);
+				// ue.setContent('<div style="font-family:' + 'Forum' + '; font-size:' + 72 + 'px; line-height:' + fontHeight + '; margin-top:' + marginTop + 'px;"><p>This is a Forum text.</p></div>');
+				// ue.setContent(`<div>
+				// 	<p style="font-family:forum; font-size:48px;">This is a Forum text.</p>
+				// 	<p style="font-family:cabin; font-size:48px;">This is a cabin text.</p>
+				// 	<p style="font-family:fira sans; font-size:48px;">This is a fira sans text.</p>
+				// 	<p style="font-family:picifico; font-size:48px;">This is a picifico text.</p>
+				// 	<p style="font-family:bangers; font-size:48px;">This is a bangers text.</p>
+				// </div>`);
+
+				// 自动聚焦到编辑器
+				ue.focus()
+			})
+
+			// 勾选框
+			var fixStyleCheckbox = document.getElementById('fixStyleCheckbox');
+
+			// 监听键盘事件（Delete 和 Backspace）
+			ue.addListener('keydown', function (type, event) {
+				if (event.key === 'Delete' || event.key === 'Backspace') {
+					// 如果勾选框被勾选，则启用“固定样式”逻辑
+					if (fixStyleCheckbox.checked) {
+						// 延迟执行以确保内容更新完成后检测
+						setTimeout(function () {
+							var content = ue.getContent()
+							if (!content.trim()) {
+								// 内容为空时自动插入外层 div
+								ue.setContent(userStyle)
+							}
+						}, 0)
+					}
+				}
+			})
+		})
+	</script>
+	
+	<!-- 注册你的 Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope)
+                    })
+                    .catch(error => {
+                        console.error('Error registering Service Worker:', error)
+                    });
+            });
+        }
+    </script>
+
+</body>
+</html>
