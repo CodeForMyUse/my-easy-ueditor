@@ -120,9 +120,9 @@
 			RGB(16进制):
 		  </label>
 		  <label class="rgb">
-			<input type="number" id="red" placeholder="88" min="0" max="255" />
-			<input type="number" id="green" placeholder="88" min="0" max="255" />
-			<input type="number" id="blue" placeholder="88" min="0" max="255" />
+			<input type="number" id="red" placeholder="66" min="0" max="255" />
+			<input type="number" id="green" placeholder="66" min="0" max="255" />
+			<input type="number" id="blue" placeholder="66" min="0" max="255" />
 		  </label>
 		  <button id="confirmBtn">确认</button>
 		</div>
@@ -130,9 +130,11 @@
 
 	<!-- 父容器，包含标题和勾选框 -->
 	<div style="text-align:center; display: flex; justify-content: center; align-items: center; font-size:36px; font-weight:bold; margin:20px 0; user-select:none;">
-		<span style="margin-right: 20px;">UEditor - Local Blog Editor</span>
-		<label style="display: inline-flex; align-items: center; white-space: nowrap; font-size: 16px;">
-			<input type="checkbox" id="fixStyleCheckbox" style="margin-right: 8px; vertical-align: middle; width: 16px; height: 16px;" checked> 固定样式
+		<span style="margin-right: 20px;">TITLE</span>
+		<input style="width: 1000px; font-size: 24px; line-height: 1.75em; padding: 10px; margin-right: 20px;"/>
+
+		<label style="display: inline-flex; align-items: center; white-space: nowrap; font-size: 20px;">
+			<input type="checkbox" id="fixStyleCheckbox" style="margin-right: 8px; vertical-align: middle; width: 30px; height: 30px;" checked> 固定样式
 		</label>
 	</div>
   
@@ -184,8 +186,6 @@
 		addInputListeners(inputIds, limits, listenInput);
 		addDialogKeyListener('config-dialog', 'confirmBtn');
 
-
-
 		let windowHeight = 650;
 
 		// (可选) 尝试使用 JavaScript 调整窗口大小，但可能受限
@@ -208,7 +208,8 @@
 				windowHeight = currentWindowHeight
 
 				console.log('屏幕高度是：------------------------------------------------------------------------'+currentWindowHeight)
-				console.log('变量类型是：------------------------------------------------------------------------'+typeof(currentWindowHeight))
+				document.getElementById("fontStyle").focus()
+				console.log('FOCUS：------------------------------------------------------------------------')
 			} catch (error) {
 				console.error("尝试调整窗口高度失败:", error)
 			}
@@ -222,9 +223,9 @@
 			var marginTop    = document.getElementById("marginTop").value || "40"	// 读取顶部高度，默认为40
 			var blogWidth    = document.getElementById("blogWidth").value || "1200"	// 读取博文宽度，默认为1200
 
-			var red    = document.getElementById("red").value || "88"	// R
-			var blue    = document.getElementById("green").value || "88"	// G
-			var green    = document.getElementById("blue").value || "88"	// B
+			var red    		= document.getElementById("red").value || "66"	// R
+			var blue    	= document.getElementById("green").value || "66"	// G
+			var green    	= document.getElementById("blue").value || "66"	// B
 			// 样式字符串
 			var userStyle = '<div style="font-family:' + fontStyle + '; font-size:' + fontSize + 'px; line-height:' + fontHeight + '; margin-top:' + marginTop + 'px; color: rgb(' + red + ',' + green + ',' + blue + ');"><p></p></div>'
 			
@@ -259,7 +260,7 @@
 
 			// 实例化 UEditor，此时程序会查找 id 为 "container" 的元素并渲染编辑器
 			var ue = UE.getEditor('container', {
-				initialFrameHeight: windowHeight-250,
+				initialFrameHeight: windowHeight-300,
 				allowDivTransToP: false,    // 是否自动转换 div 为 p，默认 true
 				autoHeightEnabled: false,	// 是否自动长高，默认 true
 				serverUrl: '',	// 指向一个不存在或返回默认配置的脚本
